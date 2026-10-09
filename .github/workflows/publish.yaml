@@ -1,0 +1,39 @@
+# reusable workflow for publishing all charms in this repo
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v**"
+      - "track**"
+
+  workflow_dispatch:
+    inputs:
+      destination_channel:
+        description: CharmHub channel to publish to
+        required: false
+        default: 'latest/edge'
+        type: string
+      source_branch:
+        description: Github branch from this repo to publish.  If blank, will use the default branch
+        required: false
+        default: ''
+        type: string
+      override-ci:
+        description: Override standard release flow
+        required: true
+        type: boolean
+
+jobs:
+  publish:
+    permissions:
+      contents: write
+      issues: write
+    name: Publish Charm
+    uses: canonical/identity-team/.github/workflows/charm-publish.yaml@5830f3e6723de07cb5b7ccb6c84031d8b2964c62 # v1.11.4
+    with:
+      destination_channel: ${{ inputs.destination_channel}}
+      source_branch: ${{ inputs.source_branch}}
+      use-charmcraftcache: false
+    secrets:
+      CHARMCRAFT_CREDENTIALS: ${{ secrets.CHARMCRAFT_CREDENTIALS}}
