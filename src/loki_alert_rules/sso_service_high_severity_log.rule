@@ -1,0 +1,13 @@
+# The streams Pebble forwards carry `charm`, `job`, `juju_application`,
+# `juju_model`, `juju_model_uuid` and `juju_unit`, but no `juju_charm`, which a
+# Loki charm with an older library selects on for a rule that
+# %%juju_topology%% labeled: the selector names a label they have.
+groups:
+- name: SSOServiceHighSeverityLog
+  rules:
+  - alert: HighFrequencyHighSeverityLog
+    expr: sum by (juju_model, juju_model_uuid, juju_application, level) (count_over_time({charm="sso-service"} | json | __error__ != "JSONParserErr" | level =~ `(?i)error|dpanic|panic|fatal` [5m])) > 100
+    labels:
+      severity: error
+    annotations:
+      summary: "Logs with level error or above found in application {{ $labels.juju_application }} in model {{ $labels.juju_model }}. Frequency of logs is high."

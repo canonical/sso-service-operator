@@ -1,0 +1,32 @@
+groups:
+  - name: sso-service
+    rules:
+      - alert: SSOServiceUnavailable-multiple
+        expr: sum by (juju_model, juju_application) (up) / count by (juju_model, juju_application) (up) < 0.7
+        for: 1m
+        labels:
+          severity: error
+        annotations:
+          summary: "30% of units of {{ $labels.juju_application }} in model {{ $labels.juju_model }} are down"
+      - alert: SSOServiceUnavailable-all
+        expr: sum by (juju_model, juju_application) (up) == 0
+        for: 1m
+        labels:
+          severity: fatal
+        annotations:
+          summary: "All units of {{ $labels.juju_application }} in model {{ $labels.juju_model }} are down: new SSO sign-ins and the management API fail"
+      - alert: SSOSignInsUnavailable
+        expr: sum by (juju_model, juju_application) (rate(sso_callback_outcomes_total{reason="unavailable"}[10m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SSO sign-ins failing as unavailable"
+          description: "An identity provider, Kratos, tenant-service or hydra-sso is not answering sso-service ({{ $value | humanize }}/s for 10 minutes)."
+      - alert: SSOTenantServiceWritesFailing
+        expr: sum by (juju_model, juju_application) (increase(sso_tenant_service_write_failures_total[15m])) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "sso-service cannot write to tenant-service"
+          description: "Changes to tenants' SSO policies, bindings and domains are not reaching tenant-service."

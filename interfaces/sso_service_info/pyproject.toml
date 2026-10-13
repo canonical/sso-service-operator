@@ -1,0 +1,17 @@
+# Copyright 2026 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+[build-system]
+requires = ["setuptools>=70.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sso-service-info"
+version = "0.1.0"
+description = "Interface library for the sso_service_info relation"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "ops>=2.0.0",
+    "pydantic~=2.0",
+]
