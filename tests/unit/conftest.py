@@ -131,6 +131,19 @@ def mocked_is_running(mocker: MockerFixture) -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
+# CLI / HTTP client mocks
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def mocked_cli(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("charm.CommandLine")
+
+
+@pytest.fixture
+def mocked_requests(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("charm.HTTPClient")
+
+
+# ---------------------------------------------------------------------------
 # Relation fixtures (standalone)
 # ---------------------------------------------------------------------------
 @pytest.fixture
