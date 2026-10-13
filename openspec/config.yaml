@@ -1,0 +1,43 @@
+schema: spec-driven
+
+context: |
+  SSO Service Operator is the Kubernetes charm of the SSO Service of the Identity Platform. The SSO Service lets a tenant sign its users in through the tenant's own OpenID Connect identity provider ("Bring Your Own SSO"). The charm runs the service in a Pebble container, gives it its PostgreSQL database and its settings, and connects it to the rest of the platform over Juju relations: a second Hydra (`hydra-sso`) whose login and consent provider the service is, Kratos, which gets one OIDC provider (`byo-sso`) that points at `hydra-sso`, the Tenant Service, the login UI, the main Hydra and 2 Istio ingress gateways.
+  Stack: Python charm on the Ops SDK, Pebble, Juju secrets, relations and actions, the `sso-service` binary in the workload container, PostgreSQL, the `istio_ingress_route` interface, the Canonical Observability Stack, a Terraform module.
+
+  Vocabulary used in every artifact:
+  - the charm: this operator. the workload: the SSO Service in the workload container. the service: the Pebble service that runs the workload.
+  - a unit: one pod of the application. the leader: the unit that Juju elected. the operator: the person who deploys and configures the charm.
+  - reconciliation: the one handler that most events run. It first publishes what other charms need, then plans the service.
+  - to plan the service: to give Pebble the layer of the service and to start or restart the service.
+  - hydra-sso: the second Hydra, which only SSO sign-ins use. the main Hydra: the Hydra of the platform, which issues tokens to apps and services.
+  - SSO connection: a tenant's registration of its identity provider. SSO sign-in: a sign-in through an SSO connection.
+  - envelope key: the key with which the SSO Service encrypts the client secrets of the SSO connections.
+  - public gateway, internal gateway: the Istio ingress gateways behind the `public-route` and `internal-route` relations.
+  - CA bundle: the certificate authorities that the charm receives over `receive-ca-cert`.
+
+  OpenSpec intent for this repo:
+  - Specs are the single source of truth for behavior.
+  - Purpose captures concise rationale (why); Requirements capture normative behavior (what).
+  - Keep artifact prose human-readable and avoid dumping implementation details into canonical specs.
+  - A requirement names what an operator or another charm can observe: relation data, statuses, options, actions, the environment of the service.
+
+  Authoritative code conventions live in repository instructions/tooling; do not duplicate them here.
+
+rules:
+  spec:
+    - Every capability spec under openspec/specs/ must include a ## Purpose section before ## Requirements
+    - The ## Purpose section is the single source of truth for design rationale (ADR-style); capture intent, goals, non-goals, and key decisions (with brief alternatives) so no separate ADR or design file is needed
+    - Keep the ## Purpose human-readable: prose and decisions, not machine-generated task lists or file-path dumps
+    - If Purpose includes a Non-goals subsection, each item must be capability-specific and describe concrete out-of-scope boundaries (avoid repeated boilerplate across specs)
+    - Requirements stay behaviour-driven (SHALL/MUST + #### Scenario blocks); the why lives in ## Purpose, the what in ## Requirements
+    - Give status messages, option names, relation endpoints, relation data fields, environment variables and action names exactly, in backticks
+    - Exclude repository coding conventions from capability requirements (for example, SPDX headers, formatting, lint style, or file scaffolding rules); keep those in repository instructions/tooling
+    - Do not specify the vendored libraries under lib/; say what the charm relies on in one sentence
+  proposal:
+    - Keep proposals concise (under 400 words)
+    - Always include a Non-goals section
+    - Reference affected files by name
+  tasks:
+    - Break tasks into single-file units of work where possible
+    - Each task must reference the file(s) it touches
+    - Always include a task for updating/adding tests
