@@ -13,6 +13,7 @@ from integrations import (
     DatabaseConfig,
     KratosInfoData,
     OAuthIntegration,
+    OAuthProviderData,
     PublicRouteData,
     TenantServiceData,
     TracingData,
@@ -104,6 +105,26 @@ class TestKratosInfoData:
         kratos = KratosInfoData(login_browser_url="https://id.example.com/x")
 
         assert kratos.byo_sso_callback_url == ""
+
+
+class TestOAuthProviderData:
+    @pytest.mark.parametrize(
+        "subjects, scope, expected",
+        [
+            pytest.param("", "", "", id="unrestricted: every valid token is admitted"),
+            pytest.param("gateway", "", "gateway,own-client", id="by subject"),
+            pytest.param("", "sso", "own-client", id="by scope"),
+        ],
+    )
+    def test_own_client_is_admitted_when_callers_are_restricted(
+        self, subjects: str, scope: str, expected: str
+    ) -> None:
+        """The charm's actions call the API as the service's own client."""
+        data = OAuthProviderData(
+            allowed_subjects=subjects, allowed_scope=scope, client_id="own-client"
+        )
+
+        assert data.to_env_vars()["AUTHENTICATION_ALLOWED_SUBJECTS"] == expected
 
 
 class TestOAuthIntegration:
