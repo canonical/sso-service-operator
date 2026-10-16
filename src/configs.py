@@ -50,7 +50,12 @@ class CharmConfig:
 
     def to_env_vars(self) -> EnvVars:
         """Get config env vars."""
-        env_vars: dict[str, str | bool] = {"LOG_LEVEL": self._config["log_level"].upper()}
+        env_vars: dict[str, str | bool] = {
+            "LOG_LEVEL": self._config["log_level"].upper(),
+            "HTTP_PROXY": self._config.get("http_proxy"),
+            "HTTPS_PROXY": self._config.get("https_proxy"),
+            "NO_PROXY": self._config.get("no_proxy"),
+        }
         # DEV only with dev: nothing, not DEV=false, without.
         if self.dev:
             env_vars["DEV"] = "true"

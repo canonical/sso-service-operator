@@ -11,6 +11,9 @@ class TestCharmConfig:
     def full_config(self) -> dict:
         return {
             "log_level": "debug",
+            "http_proxy": "http://proxy:6666",
+            "https_proxy": "http://proxy:6666",
+            "no_proxy": "localhost",
             "dev": True,
             "initial_envelope_key_secret_id": "secret:abc",
             "authn_allowed_subjects": "user1",
@@ -29,14 +32,25 @@ class TestCharmConfig:
         config = CharmConfig(full_config)
         env = config.to_env_vars()
 
-        assert env == {"LOG_LEVEL": "DEBUG", "DEV": "true"}
+        assert env == {
+            "LOG_LEVEL": "DEBUG",
+            "HTTP_PROXY": "http://proxy:6666",
+            "HTTPS_PROXY": "http://proxy:6666",
+            "NO_PROXY": "localhost",
+            "DEV": "true",
+        }
 
     def test_to_env_vars_defaults(self, minimal_config: dict) -> None:
         """Without dev nothing is set: not DEV=false."""
         config = CharmConfig(minimal_config)
         env = config.to_env_vars()
 
-        assert env == {"LOG_LEVEL": "INFO"}
+        assert env == {
+            "LOG_LEVEL": "INFO",
+            "HTTP_PROXY": None,
+            "HTTPS_PROXY": None,
+            "NO_PROXY": None,
+        }
 
     def test_get_oauth_config(self, full_config: dict) -> None:
         config = CharmConfig(full_config)
