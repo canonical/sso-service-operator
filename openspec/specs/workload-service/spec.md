@@ -22,7 +22,6 @@ Non-goals:
 - A restriction of the ports `8080` and `50051`. The charm opens both ports and restricts neither. The deployment must restrict port `50051` to the login UI, because the sign-in API on that port takes no token.
 - A level for the check `ready`.
 - A check of the value of `log_level`.
-- Proxy settings for the service.
 - Options for the settings of the service that the environment table does not name.
 
 ## Requirements
@@ -78,6 +77,7 @@ The charm SHALL set these environment variables of the service, and no other var
 | `GRPC_PORT` | `50051` |
 | `LOG_LEVEL` | the value of the `log_level` option, in capital letters. The default of the option is `info` |
 | `DEV` | `true` when the `dev` option is on. When the option is off, the charm does not set the variable |
+| `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` | the values of the `http_proxy`, `https_proxy` and `no_proxy` options. The defaults of the options are empty |
 | `DSN` | see `database-migration` |
 | `ENVELOPE_KEY` | see `envelope-key` |
 | `PUBLIC_URL` | see `ingress-routes` |
