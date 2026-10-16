@@ -79,14 +79,23 @@ class TestManagementToken:
         oauth_relation: testing.Relation,
         oauth_client_secret: testing.Secret,
     ) -> None:
-        """The commands call the API as the service's own client."""
+        """The commands call the API as the service's own client, through the workload's proxy."""
         mock_client = mocked_requests.return_value.__enter__.return_value
         mock_client.get_access_token.return_value = "the-token"
-        state = create_state(relations=[oauth_relation], secrets=[oauth_client_secret])
+        state = create_state(
+            relations=[oauth_relation],
+            secrets=[oauth_client_secret],
+            config={"https_proxy": "http://proxy:3128", "no_proxy": "svc.cluster.local"},
+        )
 
         context.run(context.on.action("get-policy", params={"tenant-id": TENANT}), state)
 
-        mocked_requests.assert_called_once_with(token_url="https://login.example.com/oauth2/token")
+        mocked_requests.assert_called_once_with(
+            token_url="https://login.example.com/oauth2/token",
+            http_proxy="",
+            https_proxy="http://proxy:3128",
+            no_proxy="svc.cluster.local",
+        )
         mock_client.get_access_token.assert_called_once_with(
             client_id="sso-service-client", client_secret="service-client-secret"
         )

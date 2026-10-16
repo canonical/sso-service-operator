@@ -33,3 +33,24 @@ class TestHTTPClient:
             auth=("client", "secret"),
             timeout=10,
         )
+
+    @pytest.mark.parametrize(
+        "no_proxy, expected",
+        [
+            ("", {"https": "http://proxy:3128"}),
+            ("other.example.com", {"https": "http://proxy:3128"}),
+            ("example.com", None),
+        ],
+    )
+    def test_proxy(self, mocker: MockerFixture, no_proxy: str, expected: dict | None) -> None:
+        """The request goes through the proxy unless no_proxy names the endpoint's host."""
+        session = mocker.patch("clients.requests.Session").return_value
+        session.proxies = None
+
+        HTTPClient(
+            token_url="https://login.example.com/oauth2/token",
+            https_proxy="http://proxy:3128",
+            no_proxy=no_proxy,
+        )
+
+        assert session.proxies == expected

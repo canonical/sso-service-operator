@@ -928,7 +928,9 @@ class SSOServiceOperatorCharm(ops.CharmBase):
         if not provider_info or not provider_info.client_id or not provider_info.client_secret:
             return None
         try:
-            with HTTPClient(token_url=provider_info.token_endpoint) as client:
+            with HTTPClient(
+                token_url=provider_info.token_endpoint, **self._config.get_proxy_config()
+            ) as client:
                 return client.get_access_token(
                     client_id=provider_info.client_id,
                     client_secret=provider_info.client_secret,
