@@ -78,6 +78,7 @@ Before each command, the charm SHALL ask the main Hydra for an access token of t
 - It uses the `client_credentials` grant, with the client id and the client secret as HTTP basic authentication.
 - It asks for no scope.
 - It has a timeout of 10 seconds. The timeout applies to the connection, and then to each wait for data of the answer.
+- It goes through the proxy of the `https_proxy` option, or of `http_proxy` for an `http` endpoint. When `no_proxy` names the host of the endpoint, it goes without the proxy.
 - It verifies the certificate of the endpoint. When the file `/tmp/ca-certificates.crt` exists in the charm container, the charm verifies against that file (see `ca-bundle`). In all other cases, the charm uses the certificates that come with the HTTP library.
 
 An action SHALL NOT fail before the command because the charm has no token. When the charm has no token, it SHALL give the command `--token=no-token`. The service refuses that value, and the action fails with the error of the command. The charm has no token in these cases:
