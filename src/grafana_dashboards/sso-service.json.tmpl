@@ -1,0 +1,174 @@
+{
+  "title": "SSO Service",
+  "uid": "sso-service",
+  "editable": true,
+  "schemaVersion": 39,
+  "tags": [
+    "identity",
+    "sso-service"
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "SSO sign-in callbacks by outcome",
+      "datasource": "${prometheusds}",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum by (reason) (rate(sso_callback_outcomes_total{juju_model=\"$juju_model\",juju_application=\"$juju_application\"}[5m]))",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "First sign-ins let through to Kratos",
+      "datasource": "${prometheusds}",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(sso_first_sign_ins_total{juju_model=\"$juju_model\",juju_application=\"$juju_application\"}[5m]))",
+          "legendFormat": "{{outcome}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Attempts completed and refused at login-ui",
+      "datasource": "${prometheusds}",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(sso_attempts_completed_total{juju_model=\"$juju_model\",juju_application=\"$juju_application\"}[5m]))",
+          "legendFormat": "completed",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(sso_complete_attempt_refused_total{juju_model=\"$juju_model\",juju_application=\"$juju_application\"}[5m]))",
+          "legendFormat": "refused",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Database query time (p95)",
+      "datasource": "${prometheusds}",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(storage_query_duration_seconds_bucket{juju_model=\"$juju_model\",juju_application=\"$juju_application\"}[5m])))",
+          "legendFormat": "{{operation}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "HTTP response time (p95)",
+      "datasource": "${prometheusds}",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(http_response_time_seconds_bucket{juju_model=\"$juju_model\",juju_application=\"$juju_application\"}[5m])))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "tenant-service write failures",
+      "datasource": "${prometheusds}",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum by (rpc) (increase(sso_tenant_service_write_failures_total{juju_model=\"$juju_model\",juju_application=\"$juju_application\"}[15m]))",
+          "legendFormat": "{{rpc}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
