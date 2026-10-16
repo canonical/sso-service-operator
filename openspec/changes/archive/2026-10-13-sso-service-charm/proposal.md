@@ -40,7 +40,6 @@ The charm has the actions `run-migration` and `get-envelope-key`. The repository
 - Actions that manage SSO connections and policies.
 - Rotation of the envelope key.
 - A network policy for the gRPC port.
-- Proxy settings for the service.
 
 ## Impact
 
