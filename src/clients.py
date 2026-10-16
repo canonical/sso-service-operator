@@ -30,6 +30,11 @@ class HTTPClient:
             str(LOCAL_CERTIFICATES_FILE) if LOCAL_CERTIFICATES_FILE.exists() else True
         )
 
+    @property
+    def proxied(self) -> bool:
+        """Whether the token request goes through a proxy."""
+        return bool(self._session.proxies)
+
     def __enter__(self) -> Self:
         """Enter the context manager."""
         return self
