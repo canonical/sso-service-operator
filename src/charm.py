@@ -926,18 +926,38 @@ class SSOServiceOperatorCharm(ops.CharmBase):
         """
         provider_info = self.oauth_requirer.get_provider_info()
         if not provider_info or not provider_info.client_id or not provider_info.client_secret:
+            missing = (
+                "provider data"
+                if not provider_info
+                else "client id"
+                if not provider_info.client_id
+                else "client secret"
+            )
+            logger.warning("No management token: the oauth integration has no %s", missing)
             return None
         try:
             with HTTPClient(
                 token_url=provider_info.token_endpoint, **self._config.get_proxy_config()
             ) as client:
-                return client.get_access_token(
+                logger.info(
+                    "Asking %s for the management token, %s",
+                    provider_info.token_endpoint,
+                    "through the proxy" if client.proxied else "without a proxy",
+                )
+                token = client.get_access_token(
                     client_id=provider_info.client_id,
                     client_secret=provider_info.client_secret,
                 )
-        except (requests.RequestException, KeyError, ValueError):
-            logger.warning("Failed to obtain management token")
+        except (requests.RequestException, KeyError, ValueError) as e:
+            logger.warning("Failed to obtain management token: %s: %s", type(e).__name__, e)
             return None
+        # The shape only: a JWT has three parts.
+        logger.info(
+            "Obtained a management token of %d characters in %d parts",
+            len(token),
+            token.count(".") + 1,
+        )
+        return token
 
     def _get_client_secret(self, secret_id: str | None) -> str | None:
         """Get an identity provider's client secret from the Juju secret an action names.
