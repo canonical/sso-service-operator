@@ -1,0 +1,56 @@
+# Copyright 2026 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+from pathlib import Path
+
+import pytest
+from pytest_mock import MockerFixture
+
+from clients import HTTPClient
+
+
+class TestHTTPClient:
+    @pytest.mark.parametrize("bundle_exists", [True, False])
+    def test_get_access_token(
+        self, mocker: MockerFixture, tmp_path: Path, bundle_exists: bool
+    ) -> None:
+        """The endpoint's certificate is verified, and the request does not wait for ever."""
+        ca_bundle = tmp_path / "ca-certificates.crt"
+        if bundle_exists:
+            ca_bundle.touch()
+        mocker.patch("clients.LOCAL_CERTIFICATES_FILE", ca_bundle)
+        session = mocker.patch("clients.requests.Session").return_value
+        session.post.return_value.json.return_value = {"access_token": "the-token"}
+
+        with HTTPClient(token_url="https://login.example.com/oauth2/token") as client:
+            token = client.get_access_token(client_id="client", client_secret="secret")
+
+        assert token == "the-token"
+        assert session.verify == (str(ca_bundle) if bundle_exists else True)
+        session.post.assert_called_once_with(
+            "https://login.example.com/oauth2/token",
+            data={"grant_type": "client_credentials"},
+            auth=("client", "secret"),
+            timeout=10,
+        )
+
+    @pytest.mark.parametrize(
+        "no_proxy, expected",
+        [
+            ("", {"https": "http://proxy:3128"}),
+            ("other.example.com", {"https": "http://proxy:3128"}),
+            ("example.com", None),
+        ],
+    )
+    def test_proxy(self, mocker: MockerFixture, no_proxy: str, expected: dict | None) -> None:
+        """The request goes through the proxy unless no_proxy names the endpoint's host."""
+        session = mocker.patch("clients.requests.Session").return_value
+        session.proxies = None
+
+        HTTPClient(
+            token_url="https://login.example.com/oauth2/token",
+            https_proxy="http://proxy:3128",
+            no_proxy=no_proxy,
+        )
+
+        assert session.proxies == expected

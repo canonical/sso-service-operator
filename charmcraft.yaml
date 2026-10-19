@@ -86,8 +86,9 @@ config:
     authn_allowed_subjects:
       description: |
         Comma separated list of token subjects that are allowed to access the management API.
-        Set together with authn_allowed_scope, a token is admitted with either. With neither
-        set, every valid token of the issuer is admitted.
+        Set together with authn_allowed_scope, a token is admitted with either. When either is
+        set, the service's own OAuth client is admitted too, for the management actions. With
+        neither set, every valid token of the issuer is admitted.
       type: string
       default: ''
     authn_allowed_scope:
@@ -107,6 +108,131 @@ actions:
         default: 120
   get-envelope-key:
     description: Get the envelope key, to keep with the database backups. Whoever can read the model can read the result.
+  list-connections:
+    description: List a tenant's SSO connections, or every tenant's when no tenant is given.
+    params:
+      tenant-id:
+        type: string
+        description: ID of the tenant.
+      page-size:
+        type: integer
+        description: Maximum number of results to return per page.
+      page-token:
+        type: string
+        description: Token to retrieve the next page of results.
+    additionalProperties: false
+  get-connection:
+    description: Get an SSO connection.
+    params:
+      tenant-id:
+        type: string
+        description: ID of the tenant that owns the connection.
+      connection-id:
+        type: string
+        description: ID of the connection.
+    required: [tenant-id, connection-id]
+    additionalProperties: false
+  create-connection:
+    description: Create an SSO connection to a tenant's OIDC identity provider, a draft until tested (test-connection).
+    params:
+      tenant-id:
+        type: string
+        description: ID of the tenant.
+      label:
+        type: string
+        description: Name the sign-in button shows.
+      issuer:
+        type: string
+        description: The identity provider's OIDC issuer URL.
+      client-id:
+        type: string
+        description: Client ID at the identity provider.
+      client-secret-id:
+        type: string
+        description: ID of a Juju secret granted to this application, with the client secret under `client-secret`.
+    required: [tenant-id, label, issuer, client-id, client-secret-id]
+    additionalProperties: false
+  update-connection:
+    description: Change an SSO connection's label or client secret. Only what is given changes.
+    params:
+      tenant-id:
+        type: string
+        description: ID of the tenant that owns the connection.
+      connection-id:
+        type: string
+        description: ID of the connection.
+      label:
+        type: string
+        description: New name for the sign-in button.
+      client-secret-id:
+        type: string
+        description: ID of a Juju secret granted to this application, with the new client secret under `client-secret`.
+    required: [tenant-id, connection-id]
+    additionalProperties: false
+  delete-connection:
+    description: Delete an SSO connection of any tenant. A tenant that requires SSO sign-in keeps its last active one.
+    params:
+      connection-id:
+        type: string
+        description: ID of the connection.
+    required: [connection-id]
+    additionalProperties: false
+  test-connection:
+    description: Get a URL to test an SSO connection in a browser. A sign-in that succeeds there marks it as tested.
+    params:
+      tenant-id:
+        type: string
+        description: ID of the tenant that owns the connection.
+      connection-id:
+        type: string
+        description: ID of the connection.
+    required: [tenant-id, connection-id]
+    additionalProperties: false
+  get-policy:
+    description: Get a tenant's SSO policy (enforcement, bindings, auto-join, domains).
+    params:
+      tenant-id:
+        type: string
+        description: ID of the tenant.
+    required: [tenant-id]
+    additionalProperties: false
+  set-policy:
+    description: Replace a tenant's SSO policy (enforcement, bindings, auto-join). The domains are kept (set-domains).
+    params:
+      tenant-id:
+        type: string
+        description: ID of the tenant.
+      enforcement:
+        type: string
+        description: Either `optional` (members may use SSO sign-in) or `required` (they must).
+      bindings:
+        type: string
+        description: Comma separated connection IDs, `<id>:inactive` for one not offered. A binding left out is removed.
+      auto-join:
+        type: boolean
+        description: Admit addresses in the tenant's domains at their first SSO sign-in.
+        default: false
+    required: [tenant-id, enforcement]
+    additionalProperties: false
+  get-domains:
+    description: Get the email domains a tenant's SSO sign-in applies to.
+    params:
+      tenant-id:
+        type: string
+        description: ID of the tenant.
+    required: [tenant-id]
+    additionalProperties: false
+  set-domains:
+    description: Replace the email domains a tenant's SSO sign-in applies to. Nothing checks that the tenant owns them.
+    params:
+      tenant-id:
+        type: string
+        description: ID of the tenant.
+      domains:
+        type: string
+        description: The domains, comma separated. None removes them all.
+    required: [tenant-id]
+    additionalProperties: false
 
 requires:
   logging:
