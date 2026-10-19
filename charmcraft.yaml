@@ -1,0 +1,237 @@
+# Copyright 2026 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+name: sso-service
+type: charm
+title: SSO Service Operator
+summary: Operator for the Identity Platform SSO Service (Bring Your Own SSO)
+description: |
+    Operator for sso-service: the connections tenants register to their own
+    OpenID Connect providers, federation with those providers, and the login
+    and consent provider of a dedicated Hydra (hydra-sso) that Kratos uses as
+    its `byo-sso` provider.
+links:
+  source: https://github.com/canonical/sso-service-operator
+  issues: https://github.com/canonical/sso-service-operator/issues
+
+charm-user: non-root
+platforms:
+  ubuntu@22.04:amd64:
+
+assumes:
+  - juju >= 3.6
+  - k8s-api
+
+config:
+  options:
+    http_proxy:
+      description: URL of the HTTP proxy eg http://proxy.internal:6666, it will set the HTTP_PROXY var in the workload environment
+      type: string
+      default: ''
+    https_proxy:
+      description: URL of the HTTPS proxy eg http://proxy.internal:6666, it will set the HTTPS_PROXY var in the workload environment
+      type: string
+      default: ''
+    no_proxy:
+      description: Domains that need to be excluded from proxying no_proxy="test.com,test.co.uk", it is a comma separate list
+      type: string
+      default: ''
+    log_level:
+      description: |
+        Configures the log level.
+
+        Acceptable values are: "info", "debug", "warning", "error" and "critical"
+      default: "info"
+      type: string
+    cpu:
+      description: |
+        K8s cpu resource limit, e.g. "1" or "500m". Default is unset (no limit). This value is used
+        for the "limits" portion of the resource requirements (the "requests" portion is
+        automatically deduced from it).
+        See https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+      type: string
+    memory:
+      description: |
+        K8s memory resource limit, e.g. "1Gi". Default is unset (no limit). This value is used
+        for the "limits" portion of the resource requirements (the "requests" portion is
+        automatically deduced from it).
+        See https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+      type: string
+    dev:
+      description: |
+        Development only, never in production. It accepts a public route without HTTPS, and
+        lets the service reach identity providers over plain HTTP and at private addresses.
+      type: boolean
+      default: false
+    initial_envelope_key_secret_id:
+      description: |
+        Juju secret id holding the envelope key under the entry `key` (the base64 of 32 random
+        bytes), e.g. to restore a backup of the database into a new deployment. It is only used
+        when the application is deployed the first time: the key is never changed afterwards,
+        and the charm blocks when the option names another key or a secret it cannot read.
+      type: secret
+    authn_issuer:
+      description: |
+        The expected issuer of incoming tokens to the management API. Defaults to the issuer
+        of the oauth integration; set it when callers present tokens of another issuer. The
+        service discovers that issuer's keys, unless authn_jwks_url says where they are.
+      type: string
+      default: ''
+    authn_jwks_url:
+      description: |
+        The URL to fetch JWKS keys for validating incoming tokens of authn_issuer, when its
+        keys are not to be discovered. It needs authn_issuer: alone, it blocks the charm.
+      type: string
+      default: ''
+    authn_allowed_subjects:
+      description: |
+        Comma separated list of token subjects that are allowed to access the management API.
+        Set together with authn_allowed_scope, a token is admitted with either. With neither
+        set, every valid token of the issuer is admitted.
+      type: string
+      default: ''
+    authn_allowed_scope:
+      description: |
+        The OAuth2 scope that is allowed to access the management API.
+      type: string
+      default: ''
+
+actions:
+  run-migration:
+    description: Run the database migrations.
+    params:
+      timeout:
+        type: integer
+        description: Timeout in seconds for the migration.
+        minimum: 1
+        default: 120
+  get-envelope-key:
+    description: Get the envelope key, to keep with the database backups. Whoever can read the model can read the result.
+
+requires:
+  logging:
+    interface: loki_push_api
+    optional: true
+  tracing:
+    interface: tracing
+    limit: 1
+    optional: true
+    description: |
+      Provides traces to COS Tempo instance
+  internal-route:
+    interface: istio_ingress_route
+    limit: 1
+    optional: true
+    description: |
+      Exposes the management API on the internal ingress, which has to authorize each
+      request. Without it the management API is reachable in the cluster only.
+  public-route:
+    interface: istio_ingress_route
+    optional: false
+    description: |
+      Exposes the pages a browser visits during an SSO sign-in on the public ingress,
+      which has to serve them over HTTPS.
+  pg-database:
+    interface: postgresql_client
+    optional: false
+    limit: 1
+  hydra-endpoint-info:
+    interface: hydra_endpoints
+    optional: false
+    limit: 1
+    description: |
+      Receive the endpoints of the Hydra deployment dedicated to SSO sign-ins, whose
+      login and consent provider this service is.
+  kratos-info:
+    interface: kratos_info
+    limit: 1
+    optional: false
+    description: |
+      Receive Kratos deployment info including the admin endpoint URL.
+  tenant-service-info:
+    interface: tenant_service_info
+    optional: false
+    limit: 1
+    description: |
+      Receive the tenant-service gRPC URL and the scope its API admits callers by.
+  oauth:
+    interface: oauth
+    optional: false
+    limit: 1
+    description: |
+      Receive oauth server's info and a set of client credentials.
+      The service calls tenant-service with them and verifies incoming tokens against the server.
+  byo-sso-client:
+    interface: oauth
+    optional: false
+    limit: 1
+    description: |
+      Register an OAuth client for Kratos at the Hydra deployment dedicated to SSO sign-ins.
+  receive-ca-cert:
+    interface: certificate_transfer
+    optional: true
+    description: |
+      Receive a CA cert.
+      This relation can be used with a local CA to obtain the CA cert that was used to sign proxied
+      endpoints.
+
+provides:
+  metrics-endpoint:
+    interface: prometheus_scrape
+    optional: true
+    description: |
+      Provides application metrics to COS Prometheus instance
+  grafana-dashboard:
+    interface: grafana_dashboard
+    optional: true
+    description: |
+      Forwards the built-in grafana dashboard(s) for monitoring sso-service.
+  ui-endpoint-info:
+    interface: login_ui_endpoints
+    optional: false
+    description: |
+      Provides the login, consent and error page URLs to the Hydra deployment dedicated
+      to SSO sign-ins.
+  kratos-external-idp:
+    interface: external_provider
+    optional: false
+    limit: 1
+    description: |
+      Registers the Hydra deployment dedicated to SSO sign-ins as an external identity
+      provider in Kratos.
+  sso-service-info:
+    interface: sso_service_info
+    optional: true
+    description: |
+      Provides the sso-service gRPC URL to a related application.
+
+peers:
+  sso-service:
+    interface: sso_service_peers
+
+containers:
+  sso-service:
+    gid: 584792
+    uid: 584792
+    resource: oci-image
+
+resources:
+  oci-image:
+    type: oci-image
+    description: OCI image for sso-service
+    upstream-source: ghcr.io/canonical/sso-service:bysso-d3b8476c
+
+parts:
+  charm:
+    plugin: uv
+    source: .
+    build-snaps:
+      - astral-uv
+    build-packages:
+      - "rustc-1.85"
+      - "cargo-1.85"
+  templates:
+    plugin: dump
+    source: .
+    prime:
+      - templates/
