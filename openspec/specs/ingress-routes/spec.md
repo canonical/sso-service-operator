@@ -39,9 +39,9 @@ The leader SHALL submit these 4 HTTP routes over the `public-route` relation (in
 
 The routes attach to one HTTP listener of the gateway. The port of the listener is `443` when the gateway says that TLS is enabled, and `80` in all other cases. The charm SHALL NOT ask the public gateway for a route to any other path of the service.
 
-#### Scenario: The callback of an SSO connection
-- **WHEN** a browser requests `/sso/callback/<connection id>` on the public gateway
-- **THEN** the service receives the request at `/callback/<connection id>`
+#### Scenario: The callback of a tenant's SSO connections
+- **WHEN** a browser requests `/sso/callback/<tenant id>` on the public gateway
+- **THEN** the service receives the request at `/callback/<tenant id>`
 
 #### Scenario: A path that is not public
 - **WHEN** a browser requests `/sso/api/v0/status` or `/api/v0/sso/connections` on the public gateway
