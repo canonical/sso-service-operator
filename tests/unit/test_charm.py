@@ -550,7 +550,7 @@ class TestPublishing:
             ("Exact", "/sso/login"): {"type": "ReplaceFullPath", "replaceFullPath": "/login"},
             ("Exact", "/sso/consent"): {"type": "ReplaceFullPath", "replaceFullPath": "/consent"},
             ("Exact", "/sso/error"): {"type": "ReplaceFullPath", "replaceFullPath": "/error"},
-            # A redirect URI per connection: /sso/callback/<connection id>.
+            # A redirect URI per tenant: /sso/callback/<tenant id>.
             ("PathPrefix", "/sso/callback/"): {
                 "type": "ReplacePrefixMatch",
                 "replacePrefixMatch": "/callback/",

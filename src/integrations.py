@@ -110,7 +110,7 @@ class PublicRouteData:
     The browser pages, under /sso on the public gateway, each rewritten to the
     service's own path; nothing else of the service is public. /sso/login,
     /sso/consent and /sso/error are exact paths, and the prefix /sso/callback/
-    is rewritten to /callback/: the callback is a path per connection.
+    is rewritten to /callback/: the callback is a path per tenant.
     """
 
     url: AnyHttpUrl | None = None
