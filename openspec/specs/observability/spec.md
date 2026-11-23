@@ -68,7 +68,7 @@ The charm SHALL give one dashboard over the `grafana-dashboard` relation (interf
 |---|---|
 | `SSO sign-in callbacks by outcome` | the rate of `sso_callback_outcomes_total` for each `reason` |
 | `First sign-ins let through to Kratos` | the rate of `sso_first_sign_ins_total` for each `outcome` |
-| `Attempts completed and refused at login-ui` | the rates of `sso_attempts_completed_total` and `sso_complete_attempt_refused_total` |
+| `Attempts verified and refused at login-ui` | the rates of `sso_attempts_verified_total` and `sso_verify_attempt_refused_total` |
 | `Database query time (p95)` | the 95th percentile of `storage_query_duration_seconds` for each `operation` |
 | `HTTP response time (p95)` | the 95th percentile of `http_response_time_seconds` for each `route` |
 | `tenant-service write failures` | the increase of `sso_tenant_service_write_failures_total` in 15 minutes for each `rpc` |
