@@ -68,7 +68,7 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "Attempts completed and refused at login-ui",
+      "title": "Attempts verified and refused at login-ui",
       "datasource": "${prometheusds}",
       "gridPos": {
         "h": 8,
@@ -84,12 +84,12 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(sso_attempts_completed_total{juju_model=\"$juju_model\",juju_application=\"$juju_application\"}[5m]))",
-          "legendFormat": "completed",
+          "expr": "sum(rate(sso_attempts_verified_total{juju_model=\"$juju_model\",juju_application=\"$juju_application\"}[5m]))",
+          "legendFormat": "verified",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(sso_complete_attempt_refused_total{juju_model=\"$juju_model\",juju_application=\"$juju_application\"}[5m]))",
+          "expr": "sum(rate(sso_verify_attempt_refused_total{juju_model=\"$juju_model\",juju_application=\"$juju_application\"}[5m]))",
           "legendFormat": "refused",
           "refId": "B"
         }
