@@ -61,7 +61,7 @@ When a condition is false, the charm SHALL NOT change the layer of the service, 
 ### Requirement: The Pebble layer
 The charm SHALL give Pebble the layer of the service, with the name `sso-service`. The layer has one service and one check:
 
-- The service `sso-service` runs the command `sso-service serve`. Its startup is `disabled`.
+- The service `sso-service` runs the command `sso-service serve`. Its startup is `disabled`. Its `kill-delay` is 24 seconds. Thus the service can drain its requests and export its last spans before Pebble kills it, and the whole stop stays within the 30 seconds that Kubernetes gives a pod.
 - The check `ready` is an HTTP request to `http://localhost:8080/api/v0/status`. The charm gives the check no level.
 
 #### Scenario: The service answers on its status route
