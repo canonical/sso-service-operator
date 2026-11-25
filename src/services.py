@@ -34,6 +34,9 @@ PEBBLE_LAYER_DICT: LayerDict = {
             "summary": "entrypoint of the sso-service image",
             "command": f"{SERVICE_COMMAND}",
             "startup": "disabled",
+            # The service drains for up to 20 s, then exports its last spans. Pebble's
+            # whole stop (kill-delay + 5 s) stays within Kubernetes' 30 s grace period.
+            "kill-delay": "24s",
         }
     },
     "checks": {
