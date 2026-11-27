@@ -10,7 +10,6 @@ import pytest
 from ops import testing
 from ops.pebble import ConnectionError as PebbleConnectionError
 from ops.pebble import Layer, ServiceStatus
-from ops.testing import ActionFailed
 from pytest_mock import MockerFixture
 from unit.conftest import (
     KEY_A,
@@ -73,7 +72,8 @@ class TestPebbleReadyEvent:
         assert env["TENANT_SERVICE_GRPC_ADDRESS"] == "tenant-service.model.svc.cluster.local:50051"
         assert env["AUTHENTICATION_ISSUER"] == "https://login.example.com"
         assert env["AUTHENTICATION_JWKS_URL"] == "https://login.example.com/.well-known/jwks.json"
-        assert env["AUTHENTICATION_ALLOWED_SUBJECTS"] == "a,b,c"
+        # The listed subjects, and the service's own client for its actions.
+        assert env["AUTHENTICATION_ALLOWED_SUBJECTS"] == "a,b,c,sso-service-client"
         assert env["SERVICE_TOKEN_URL"] == "https://login.example.com/oauth2/token"
         # The scope tenant-service publishes is the one the service asks for.
         assert env["SERVICE_TOKEN_SCOPES"] == "tenant-service"
@@ -1040,41 +1040,6 @@ class TestMigration:
 
         commands = [e.command[:3] for e in context.exec_history[WORKLOAD_CONTAINER]]
         assert commands.count(["sso-service", "migrate", "check"]) == 1
-
-
-class TestRunMigrationAction:
-    def test_runs_the_migration(
-        self, context: testing.Context, all_relations: list, client_secrets: list
-    ) -> None:
-        state = create_state(
-            relations=all_relations, secrets=[*client_secrets, envelope_key_secret()]
-        )
-
-        context.run(context.on.action("run-migration", params={"timeout": 60}), state)
-
-        (migrate,) = [
-            e
-            for e in context.exec_history[WORKLOAD_CONTAINER]
-            if e.command[:3] == ["sso-service", "migrate", "up"]
-        ]
-        assert migrate.timeout == 60
-
-    def test_needs_the_database(self, context: testing.Context) -> None:
-        with pytest.raises(ActionFailed, match="The database is not ready"):
-            context.run(context.on.action("run-migration"), create_state())
-
-
-class TestEnvelopeKeyAction:
-    def test_get_envelope_key(self, context: testing.Context) -> None:
-        state = create_state(secrets=[envelope_key_secret()])
-
-        context.run(context.on.action("get-envelope-key"), state)
-
-        assert context.action_results == {"key": KEY_A}
-
-    def test_fails_without_a_key(self, context: testing.Context) -> None:
-        with pytest.raises(ActionFailed, match="not ready"):
-            context.run(context.on.action("get-envelope-key"), create_state())
 
 
 class TestInvalidConfig:

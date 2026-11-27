@@ -9,6 +9,7 @@ import subprocess
 from functools import cached_property
 
 import ops
+import requests
 from charmlibs.interfaces.istio_ingress_route import IstioIngressRouteRequirer
 from charmlibs.interfaces.oauth import ClientConfigError, OAuthRequirer
 from charms.certificate_transfer_interface.v1.certificate_transfer import (
@@ -37,10 +38,12 @@ from charms.tenant_service.v0.tenant_service_info import TenantServiceInfoRequir
 from sso_service_info import SSOServiceInfoProvider
 
 from cli import CommandLine
+from clients import HTTPClient
 from configs import CharmConfig
 from constants import (
     BYO_SSO_CLIENT_INTEGRATION_NAME,
     CERTIFICATE_TRANSFER_INTEGRATION_NAME,
+    CLIENT_SECRET_KEY,
     DATABASE_INTEGRATION_NAME,
     ENVELOPE_KEY_SECRET_KEY,
     ENVELOPE_KEY_SECRET_LABEL,
@@ -227,6 +230,16 @@ class SSOServiceOperatorCharm(ops.CharmBase):
         # Actions
         self.framework.observe(self.on.run_migration_action, self._on_run_migration_action)
         self.framework.observe(self.on.get_envelope_key_action, self._on_get_envelope_key_action)
+        self.framework.observe(self.on.list_connections_action, self._on_list_connections_action)
+        self.framework.observe(self.on.get_connection_action, self._on_get_connection_action)
+        self.framework.observe(self.on.create_connection_action, self._on_create_connection_action)
+        self.framework.observe(self.on.update_connection_action, self._on_update_connection_action)
+        self.framework.observe(self.on.delete_connection_action, self._on_delete_connection_action)
+        self.framework.observe(self.on.test_connection_action, self._on_test_connection_action)
+        self.framework.observe(self.on.get_policy_action, self._on_get_policy_action)
+        self.framework.observe(self.on.set_policy_action, self._on_set_policy_action)
+        self.framework.observe(self.on.get_domains_action, self._on_get_domains_action)
+        self.framework.observe(self.on.set_domains_action, self._on_set_domains_action)
 
         # Hydra endpoints relation
         self.framework.observe(
@@ -903,6 +916,76 @@ class SSOServiceOperatorCharm(ops.CharmBase):
 
     # Actions
 
+    def _get_management_token(self) -> str | None:
+        """OAuth access token for internal management API calls.
+
+        Returns:
+            An access token if OAuth is configured and the exchange succeeds,
+            otherwise None. The CLI then sends a placeholder, which the service
+            refuses.
+        """
+        provider_info = self.oauth_requirer.get_provider_info()
+        if not provider_info or not provider_info.client_id or not provider_info.client_secret:
+            missing = (
+                "provider data"
+                if not provider_info
+                else "client id"
+                if not provider_info.client_id
+                else "client secret"
+            )
+            logger.warning("No management token: the oauth integration has no %s", missing)
+            return None
+        try:
+            with HTTPClient(
+                token_url=provider_info.token_endpoint, **self._config.get_proxy_config()
+            ) as client:
+                logger.info(
+                    "Asking %s for the management token, %s",
+                    provider_info.token_endpoint,
+                    "through the proxy" if client.proxied else "without a proxy",
+                )
+                token = client.get_access_token(
+                    client_id=provider_info.client_id,
+                    client_secret=provider_info.client_secret,
+                )
+        except (requests.RequestException, KeyError, ValueError) as e:
+            logger.warning("Failed to obtain management token: %s: %s", type(e).__name__, e)
+            return None
+        # The shape only: a JWT has three parts.
+        logger.info(
+            "Obtained a management token of %d characters in %d parts",
+            len(token),
+            token.count(".") + 1,
+        )
+        return token
+
+    def _get_client_secret(self, secret_id: str | None) -> str | None:
+        """Get an identity provider's client secret from the Juju secret an action names.
+
+        Args:
+            secret_id: The value of the action's client-secret-id parameter.
+
+        Returns:
+            The client secret, or None when the action names no secret.
+
+        Raises:
+            InvalidConfigError: If the secret cannot be read or holds no client secret.
+        """
+        if not secret_id:
+            return None
+
+        try:
+            content = self.model.get_secret(id=secret_id).get_content(refresh=True)
+        except (ops.SecretNotFoundError, ops.ModelError) as e:
+            raise InvalidConfigError(
+                f"Cannot read the secret {secret_id}: grant it to this application"
+            ) from e
+
+        # A secret added from a file ends with the file's newline.
+        if not (client_secret := content.get(CLIENT_SECRET_KEY, "").rstrip("\r\n")):
+            raise InvalidConfigError(f"The secret {secret_id} has no `{CLIENT_SECRET_KEY}` entry")
+        return client_secret
+
     def _on_run_migration_action(self, event: ops.ActionEvent) -> None:
         """Handle the run-migration action."""
         if not container_connectivity(self):
@@ -931,6 +1014,171 @@ class SSOServiceOperatorCharm(ops.CharmBase):
 
         event.log("Successfully fetched the envelope key")
         event.set_results({"key": self._secrets.envelope_key})
+
+    def _on_list_connections_action(self, event: ops.ActionEvent) -> None:
+        """Handle the list-connections action."""
+        if not container_connectivity(self):
+            event.fail("Workload container is not ready")
+            return
+
+        try:
+            result = self._cli.list_connections(
+                tenant_id=event.params.get("tenant-id"),
+                page_size=event.params.get("page-size"),
+                page_token=event.params.get("page-token"),
+                token=self._get_management_token(),
+            )
+            event.set_results({"output": result})
+        except Exception as e:
+            event.fail(f"Failed to list connections: {e}")
+
+    def _on_get_connection_action(self, event: ops.ActionEvent) -> None:
+        """Handle the get-connection action."""
+        if not container_connectivity(self):
+            event.fail("Workload container is not ready")
+            return
+
+        try:
+            result = self._cli.get_connection(
+                tenant_id=event.params["tenant-id"],
+                connection_id=event.params["connection-id"],
+                token=self._get_management_token(),
+            )
+            event.set_results({"output": result})
+        except Exception as e:
+            event.fail(f"Failed to get connection: {e}")
+
+    def _on_create_connection_action(self, event: ops.ActionEvent) -> None:
+        """Handle the create-connection action."""
+        if not container_connectivity(self):
+            event.fail("Workload container is not ready")
+            return
+
+        try:
+            result = self._cli.create_connection(
+                tenant_id=event.params["tenant-id"],
+                label=event.params["label"],
+                issuer=event.params["issuer"],
+                client_id=event.params["client-id"],
+                client_secret=self._get_client_secret(event.params["client-secret-id"]),
+                token=self._get_management_token(),
+            )
+            event.set_results({"output": result})
+        except Exception as e:
+            event.fail(f"Failed to create connection: {e}")
+
+    def _on_update_connection_action(self, event: ops.ActionEvent) -> None:
+        """Handle the update-connection action."""
+        if not container_connectivity(self):
+            event.fail("Workload container is not ready")
+            return
+
+        try:
+            result = self._cli.update_connection(
+                tenant_id=event.params["tenant-id"],
+                connection_id=event.params["connection-id"],
+                label=event.params.get("label"),
+                client_secret=self._get_client_secret(event.params.get("client-secret-id")),
+                token=self._get_management_token(),
+            )
+            event.set_results({"output": result})
+        except Exception as e:
+            event.fail(f"Failed to update connection: {e}")
+
+    def _on_delete_connection_action(self, event: ops.ActionEvent) -> None:
+        """Handle the delete-connection action."""
+        if not container_connectivity(self):
+            event.fail("Workload container is not ready")
+            return
+
+        try:
+            result = self._cli.delete_connection(
+                connection_id=event.params["connection-id"],
+                token=self._get_management_token(),
+            )
+            event.set_results({"output": result})
+        except Exception as e:
+            event.fail(f"Failed to delete connection: {e}")
+
+    def _on_test_connection_action(self, event: ops.ActionEvent) -> None:
+        """Handle the test-connection action."""
+        if not container_connectivity(self):
+            event.fail("Workload container is not ready")
+            return
+
+        try:
+            result = self._cli.test_connection(
+                tenant_id=event.params["tenant-id"],
+                connection_id=event.params["connection-id"],
+                token=self._get_management_token(),
+            )
+            event.set_results({"output": result})
+        except Exception as e:
+            event.fail(f"Failed to test connection: {e}")
+
+    def _on_get_policy_action(self, event: ops.ActionEvent) -> None:
+        """Handle the get-policy action."""
+        if not container_connectivity(self):
+            event.fail("Workload container is not ready")
+            return
+
+        try:
+            result = self._cli.get_policy(
+                tenant_id=event.params["tenant-id"],
+                token=self._get_management_token(),
+            )
+            event.set_results({"output": result})
+        except Exception as e:
+            event.fail(f"Failed to get policy: {e}")
+
+    def _on_set_policy_action(self, event: ops.ActionEvent) -> None:
+        """Handle the set-policy action."""
+        if not container_connectivity(self):
+            event.fail("Workload container is not ready")
+            return
+
+        try:
+            result = self._cli.set_policy(
+                tenant_id=event.params["tenant-id"],
+                enforcement=event.params["enforcement"],
+                bindings=event.params.get("bindings"),
+                auto_join=event.params.get("auto-join", False),
+                token=self._get_management_token(),
+            )
+            event.set_results({"output": result})
+        except Exception as e:
+            event.fail(f"Failed to set policy: {e}")
+
+    def _on_get_domains_action(self, event: ops.ActionEvent) -> None:
+        """Handle the get-domains action."""
+        if not container_connectivity(self):
+            event.fail("Workload container is not ready")
+            return
+
+        try:
+            result = self._cli.get_domains(
+                tenant_id=event.params["tenant-id"],
+                token=self._get_management_token(),
+            )
+            event.set_results({"output": result})
+        except Exception as e:
+            event.fail(f"Failed to get domains: {e}")
+
+    def _on_set_domains_action(self, event: ops.ActionEvent) -> None:
+        """Handle the set-domains action."""
+        if not container_connectivity(self):
+            event.fail("Workload container is not ready")
+            return
+
+        try:
+            result = self._cli.set_domains(
+                tenant_id=event.params["tenant-id"],
+                domains=event.params.get("domains"),
+                token=self._get_management_token(),
+            )
+            event.set_results({"output": result})
+        except Exception as e:
+            event.fail(f"Failed to set domains: {e}")
 
     def _resource_reqs_from_config(self) -> ResourceRequirements:
         """Build resource requirements from charm config."""

@@ -404,6 +404,10 @@ class OAuthProviderData:
     def to_env_vars(self) -> EnvVars:
         """Get OAuth env vars."""
         allowed_subjects = [s.strip() for s in self.allowed_subjects.split(",") if s.strip()]
+        # The charm's actions call the API as the service's own client. It is added
+        # only when callers are restricted: alone, it would be the only one admitted.
+        if self.client_id and (allowed_subjects or self.allowed_scope):
+            allowed_subjects.append(self.client_id)
 
         return {
             "AUTHENTICATION_ISSUER": self.oidc_issuer_url,
